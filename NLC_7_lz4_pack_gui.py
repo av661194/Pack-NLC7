@@ -20,6 +20,7 @@ except ImportError:
     _lz4 = None
 
 # Форматы файлов, которые уже сжаты (повторное сжатие не дает выигрыша) или которые идут в многопоточном режиме
+#NO_COMPRESS_EXT = {".ogg", ".ogm", ".avi", ".mp4", ".bik", ".dds", ".thm"}
 NO_COMPRESS_EXT = {".ogm", ".avi", ".mp4", ".bik", ".geom", ".geomx"}
 
 MIN_VOL_MB = 32
@@ -278,7 +279,7 @@ class PackerApp(tk.Tk):
         ttk.Entry(vol_box, textvariable=self.var_vol_mb, width=10).pack(side="left")
         ttk.Label(
             vol_box,
-            text="от 32 до 1920 (если пусто или вне пределов — 640 МБ)",
+            text="от 32 до 1920 (если пусто или вне пределов — 640 МБ по умолчанию)",
         ).pack(side="left", padx=8)
 
         frm.columnconfigure(1, weight=1)
@@ -363,7 +364,7 @@ class PackerApp(tk.Tk):
         path = filedialog.asksaveasfilename(
             title="Сохранить архив как",
             defaultextension=".db0",
-            filetypes=[("X-Ray DB/XDB", "*.db* *.xdb*"), ("All files", "*.*")],
+            filetypes=[("X-Ray archives", "*.db* *.xdb*"), ("All files", "*.*")],
         )
         if path:
             self.var_out.set(path)
@@ -467,8 +468,8 @@ class PackerApp(tk.Tk):
 # ==============================================================================
 def main():
     if len(sys.argv) > 1:
-        parser = argparse.ArgumentParser(description="Упаковщик папок в формат .db / .xdb для NLC 7 (LZ4F)")
-        parser.add_argument("input_dir", help="Путь к исходной папке (например, gamedata)")
+        parser = argparse.ArgumentParser(description="Упаковщик gamedata в формат .db / .xdb для NLC 7 (LZ4F)")
+        parser.add_argument("input_dir", help="Путь к исходной папке gamedata")
         parser.add_argument("output_db", help="Имя выходного архива (например, gamedata.db0)")
         parser.add_argument("--no-compress", action="store_true", help="Не сжимать файлы")
         parser.add_argument("--raw-table", action="store_true", help="Не сжимать таблицу файлов")
