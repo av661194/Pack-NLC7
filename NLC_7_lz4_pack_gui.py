@@ -124,43 +124,33 @@ def build_archive(
             )
         return bytes(tbl)
 
-    # 3. Вычисляем размер Чанка 1 (таблицы) и выравнивающего Чанка USERDATA (граница 2048 байт)
-    # Пробная таблица для определения точного размера сжатого Чанка 1
-    probe_table = make_table(0)
-    use_comp_table = False
-    if compress_table and not no_compress and len(probe_table) > 64:
-        probe_packed = wrap_lz4(probe_table)
-        if len(probe_packed) < len(probe_table):
-            use_comp_table = True
-            chunk1_size = len(probe_packed)
-        else:
-            chunk1_size = len(probe_table)
-    else:
-        chunk1_size = len(probe_table)
-
-    # Позиция после Чанка 1 (8 байт заголовка + chunk1_size)
-    pos_after_chunk1 = 8 + chunk1_size
-
-    # Добавляем чанк USERDATA:ALIGN_CHUNK как в оригинальном NLC 7,
-    # чтобы заголовок Чанка 0 + данные выровнялись по границе 2048 байт
+    # 3. Точный расчет выравнивания (2048 байт) с учетом реального размера сжатой таблицы
     userdata_sig = b"USERDATA:ALIGN_CHUNK\x00\x00\x00\x00"
-    min_pos_after_ud = pos_after_chunk1 + 8 + len(userdata_sig) + 8  # +8 на заголовок Чанка 0
-    aligned_data_start = ((min_pos_after_ud + 2047) // 2048) * 2048
+    aligned_data_start = 2048
+
+    for _ in range(3):
+        final_table_raw = make_table(aligned_data_start)
+        if compress_table and not no_compress and len(final_table_raw) > 64:
+            cand = wrap_lz4(final_table_raw)
+            if len(cand) < len(final_table_raw):
+                chunk1_id = 1 | 0x80000000
+                chunk1_data = cand
+            else:
+                chunk1_id = 1
+                chunk1_data = final_table_raw
+        else:
+            chunk1_id = 1
+            chunk1_data = final_table_raw
+
+        pos_after_chunk1 = 8 + len(chunk1_data)
+        min_pos_after_ud = pos_after_chunk1 + 8 + len(userdata_sig) + 8
+        aligned_data_start = ((min_pos_after_ud + 2047) // 2048) * 2048
+
     pad_len = aligned_data_start - min_pos_after_ud
-
     userdata_payload = userdata_sig + (b"\x00" * pad_len)
-    userdata_chunk_id = 2 | 0x91000000  # Сигнатура пользовательского чанка как в gamedata.dbb
+    userdata_chunk_id = 2 | 0x91000000
 
-    # Пересобираем финальную таблицу с точным смещением начала данных Чанка 0 (aligned_data_start)
-    final_table_raw = make_table(aligned_data_start)
-    if use_comp_table:
-        chunk1_id = 1 | 0x80000000
-        chunk1_data = wrap_lz4(final_table_raw)
-    else:
-        chunk1_id = 1
-        chunk1_data = final_table_raw
-
-    # 4. Записываем архив в правильном порядке NLC 7: Чанк 1 -> Чанк USERDATA -> Чанк 0
+    # 4. Записываем архив: Чанк 1 -> Чанк USERDATA -> Чанк 0
     with open(out_file, "wb") as out:
         out.write(struct.pack("<II", chunk1_id, len(chunk1_data)))
         out.write(chunk1_data)
