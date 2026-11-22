@@ -80,7 +80,7 @@ def build_archive(
 
     # 3.1. Запись информации о папках в таблицу (флаг 0x81)
     for d in dirs:
-        name_bytes = d.encode("cp1251")
+        name_bytes = d.lower().encode("cp1251")
         body_len = 22 + len(name_bytes)
         entry = struct.pack("<HH", body_len, 0x81) + (b"\x00" * 20) + name_bytes
         table_entries.extend(entry)
@@ -109,7 +109,7 @@ def build_archive(
         comp_size = len(packed)
         data_chunks.extend(packed)
 
-        name_bytes = rel_path.encode("cp1251")
+        name_bytes = rel_path.lower().encode("cp1251")
         body_len = 26 + len(name_bytes)
         size_field = body_len - 4
 
