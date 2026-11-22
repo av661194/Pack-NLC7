@@ -48,7 +48,7 @@ def build_archive(
     progress_cb=None,
     stop_flag=None,
 ):
-    """Сканирует папку, сжимает файлы и записывает чанки данных и таблицы."""
+    """Собирает архив .db / .xdb строго в формате NLC 7 (Чанк 1 -> USERDATA:ALIGN_CHUNK -> Чанк 0)."""
     src_dir = os.path.abspath(src_dir)
     if not os.path.isdir(src_dir):
         raise FileNotFoundError(f"Папка не найдена: {src_dir}")
@@ -56,36 +56,27 @@ def build_archive(
     dirs = set()
     files = []
 
-    # Рекурсивный обход исходной директории
     for root, _, fnames in os.walk(src_dir):
         rel_root = os.path.relpath(root, src_dir)
         if rel_root != ".":
-            dirs.add(rel_root.replace("/", "\\"))
+            dirs.add(rel_root.replace("/", "\\").lower())
         for fn in fnames:
             full_path = os.path.join(root, fn)
-            rel_path = os.path.relpath(full_path, src_dir).replace("/", "\\")
+            rel_path = os.path.relpath(full_path, src_dir).replace("/", "\\").lower()
             files.append((rel_path, full_path))
 
-    # Сортировка по алфавиту (стандарт для X-Ray)
-    dirs = sorted(dirs, key=lambda x: x.lower())
-    files.sort(key=lambda x: x[0].lower())
+    dirs = sorted(dirs)
+    files.sort(key=lambda x: x)
 
     total_files = len(files)
     if progress_cb:
         progress_cb("init", (total_files, len(dirs)))
 
+    # 1. Сначала пакуем все файлы в буфер Чанка 0 и запоминаем относительные смещения
     data_chunks = bytearray()
-    current_offset = 8  # Первые 8 байт файла займет заголовок Чанка 0 (id + size)
-    table_entries = bytearray()
+    rel_offset = 0
+    file_records = []
 
-    # 3.1. Запись информации о папках в таблицу (флаг 0x81)
-    for d in dirs:
-        name_bytes = d.lower().encode("cp1251")
-        body_len = 22 + len(name_bytes)
-        entry = struct.pack("<HH", body_len, 0x81) + (b"\x00" * 20) + name_bytes
-        table_entries.extend(entry)
-
-    # 3.2. Сжатие файлов и запись их метаданных в таблицу (флаг 0x00)
     for idx, (rel_path, full_path) in enumerate(files, 1):
         if stop_flag and stop_flag.is_set():
             return False
@@ -96,54 +87,89 @@ def build_archive(
         real_size = len(raw)
         crc = zlib.crc32(raw) & 0xFFFFFFFF
         mtime = int(os.path.getmtime(full_path))
-        ext = os.path.splitext(rel_path)[1].lower()
+        ext = os.path.splitext(rel_path).lower()
 
-        # Решаем, нужно ли сжимать файл
         if no_compress or real_size < 64 or ext in NO_COMPRESS_EXT:
             packed = raw
         else:
             candidate = wrap_lz4(raw)
-            # Сохраняем сжатый вариант, только если он реально меньше исходного
             packed = candidate if len(candidate) < real_size else raw
 
         comp_size = len(packed)
         data_chunks.extend(packed)
 
-        name_bytes = rel_path.lower().encode("cp1251")
-        body_len = 26 + len(name_bytes)
-        size_field = body_len - 4
-
-        entry = (
-            struct.pack("<HH", size_field, 0x00)
-            + struct.pack("<6I", real_size, comp_size, crc, mtime, 0, current_offset)
-            + name_bytes
-        )
-        table_entries.extend(entry)
-        current_offset += comp_size
+        file_records.append((rel_path, real_size, comp_size, crc, mtime, rel_offset))
+        rel_offset += comp_size
 
         if progress_cb:
             progress_cb("step", (idx, total_files, rel_path))
 
-    # 3.3. Формирование Чанка 1 (таблицы файлов)
-    table_raw = bytes(table_entries)
-    if compress_table and not no_compress and len(table_raw) > 64:
-        table_packed = wrap_lz4(table_raw)
-        if len(table_packed) < len(table_raw):
-            chunk1_id = 1 | 0x80000000  # Старший бит сигнализирует о сжатии таблицы
-            chunk1_data = table_packed
+    # 2. Вспомогательная функция сборки таблицы файлов с учетом базового смещения Чанка 0
+    def make_table(base_data_offset: int) -> bytes:
+        tbl = bytearray()
+        for d in dirs:
+            name_bytes = d.encode("cp1251")
+            body_len = 22 + len(name_bytes)
+            tbl.extend(struct.pack("<HH", body_len, 0x81) + (b"\x00" * 20) + name_bytes)
+
+        for rel_path, real_size, comp_size, crc, mtime, r_off in file_records:
+            name_bytes = rel_path.encode("cp1251")
+            body_len = 26 + len(name_bytes)
+            size_field = body_len - 4
+            abs_offset = base_data_offset + r_off
+            tbl.extend(
+                struct.pack("<HH", size_field, 0x00)
+                + struct.pack("<6I", real_size, comp_size, crc, mtime, 0, abs_offset)
+                + name_bytes
+            )
+        return bytes(tbl)
+
+    # 3. Вычисляем размер Чанка 1 (таблицы) и выравнивающего Чанка USERDATA (граница 2048 байт)
+    # Пробная таблица для определения точного размера сжатого Чанка 1
+    probe_table = make_table(0)
+    use_comp_table = False
+    if compress_table and not no_compress and len(probe_table) > 64:
+        probe_packed = wrap_lz4(probe_table)
+        if len(probe_packed) < len(probe_table):
+            use_comp_table = True
+            chunk1_size = len(probe_packed)
         else:
-            chunk1_id = 1
-            chunk1_data = table_raw
+            chunk1_size = len(probe_table)
+    else:
+        chunk1_size = len(probe_table)
+
+    # Позиция после Чанка 1 (8 байт заголовка + chunk1_size)
+    pos_after_chunk1 = 8 + chunk1_size
+
+    # Добавляем чанк USERDATA:ALIGN_CHUNK как в оригинальном NLC 7,
+    # чтобы заголовок Чанка 0 + данные выровнялись по границе 2048 байт
+    userdata_sig = b"USERDATA:ALIGN_CHUNK\x00\x00\x00\x00"
+    min_pos_after_ud = pos_after_chunk1 + 8 + len(userdata_sig) + 8  # +8 на заголовок Чанка 0
+    aligned_data_start = ((min_pos_after_ud + 2047) // 2048) * 2048
+    pad_len = aligned_data_start - min_pos_after_ud
+
+    userdata_payload = userdata_sig + (b"\x00" * pad_len)
+    userdata_chunk_id = 2 | 0x91000000  # Сигнатура пользовательского чанка как в gamedata.dbb
+
+    # Пересобираем финальную таблицу с точным смещением начала данных Чанка 0 (aligned_data_start)
+    final_table_raw = make_table(aligned_data_start)
+    if use_comp_table:
+        chunk1_id = 1 | 0x80000000
+        chunk1_data = wrap_lz4(final_table_raw)
     else:
         chunk1_id = 1
-        chunk1_data = table_raw
+        chunk1_data = final_table_raw
 
-    # 3.4. Запись итогового бинарного файла на диск
+    # 4. Записываем архив в правильном порядке NLC 7: Чанк 1 -> Чанк USERDATA -> Чанк 0
     with open(out_file, "wb") as out:
-        out.write(struct.pack("<II", 0, len(data_chunks)))
-        out.write(data_chunks)
         out.write(struct.pack("<II", chunk1_id, len(chunk1_data)))
         out.write(chunk1_data)
+
+        out.write(struct.pack("<II", userdata_chunk_id, len(userdata_payload)))
+        out.write(userdata_payload)
+
+        out.write(struct.pack("<II", 0, len(data_chunks)))
+        out.write(data_chunks)
 
     return True
     # ==============================================================================
