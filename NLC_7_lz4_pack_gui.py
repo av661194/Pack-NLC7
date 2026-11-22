@@ -107,20 +107,23 @@ def build_archive(
     # 2. Вспомогательная функция сборки таблицы файлов с учетом базового смещения Чанка 0
     def make_table(base_data_offset: int) -> bytes:
         tbl = bytearray()
+        # 1. Записи директорий: 12 нулей + 8 байт 0xFF (offset = -1) + путь со слешем '\' на конце
         for d in dirs:
-            # В оригинале NLC 7 пути директорий в таблице оканчиваются на обратный слеш '\'
             dir_name = d if d.endswith("\\") else d + "\\"
             name_bytes = dir_name.encode("cp1251")
             body_len = 22 + len(name_bytes)
-            tbl.extend(struct.pack("<HH", body_len, 0x81) + (b"\x00" * 20) + name_bytes)
+            dir_header = (b"\x00" * 12) + (b"\xff" * 8)
+            tbl.extend(struct.pack("<HH", body_len, 0x81) + dir_header + name_bytes)
 
+        # 2. Записи файлов: flags = 0x0032 (как у оригинала в gamedata.dbb)
         for rel_path, real_size, comp_size, crc, mtime, r_off in file_records:
             name_bytes = rel_path.encode("cp1251")
             body_len = 26 + len(name_bytes)
             size_field = body_len - 4
             abs_offset = base_data_offset + r_off
+            file_flags = 0x0032 if comp_size < real_size else 0x0022
             tbl.extend(
-                struct.pack("<HH", size_field, 0x00)
+                struct.pack("<HH", size_field, file_flags)
                 + struct.pack("<6I", real_size, comp_size, crc, mtime, 0, abs_offset)
                 + name_bytes
             )
