@@ -19,7 +19,7 @@ try:
 except ImportError:
     _lz4 = None
 
-# Форматы файлов, которые уже сжаты (повторное сжатие не дает выигрыша)
+# Форматы файлов, которые уже сжаты (повторное сжатие не дает выигрыша) или которые идут в многопоточном режиме
 NO_COMPRESS_EXT = {".ogm", ".avi", ".mp4", ".bik", ".geom", ".geomx"}
 
 MIN_VOL_MB = 32
@@ -278,7 +278,7 @@ class PackerApp(tk.Tk):
         ttk.Entry(vol_box, textvariable=self.var_vol_mb, width=10).pack(side="left")
         ttk.Label(
             vol_box,
-            text="от 32 до 1920 МБ (если пусто или вне пределов — авто 640 МБ)",
+            text="от 32 до 1920 (если пусто или вне пределов — 640 МБ)",
         ).pack(side="left", padx=8)
 
         frm.columnconfigure(1, weight=1)
