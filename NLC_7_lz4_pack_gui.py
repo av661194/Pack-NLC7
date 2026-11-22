@@ -189,7 +189,7 @@ class PackerApp(tk.Tk):
         frm.pack(fill="x")
 
         # Выбор исходной папки (gamedata)
-        ttk.Label(frm, text="Исходная папка:").grid(row=0, column=0, sticky="w")
+        ttk.Label(frm, text="Папка gamedata:").grid(row=0, column=0, sticky="w")
         self.var_src = tk.StringVar()
         ttk.Entry(frm, textvariable=self.var_src).grid(row=0, column=1, sticky="ew", padx=6)
         ttk.Button(frm, text="Обзор...", command=self._pick_src).grid(row=0, column=2)
@@ -243,14 +243,14 @@ class PackerApp(tk.Tk):
             self.var_src.set(path)
             if not self.var_out.get():
                 parent = os.path.dirname(os.path.abspath(path))
-                self.var_out.set(os.path.join(parent, "gamedata.dbz"))
+                self.var_out.set(os.path.join(parent, "gamedata.dbx"))
 
     def _pick_out(self):
         """Диалог выбора пути и имени итогового .db / .xdb архива."""
         path = filedialog.asksaveasfilename(
             title="Сохранить архив как",
-            defaultextension=".dbz",
-            filetypes=[("X-Ray DB/XDB", "*.db* *.xdb*"), ("All files", "*.*")],
+            defaultextension=".dbx",
+            filetypes=[("X-Ray archives", "*.db* *.xdb*"), ("All files", "*.*")],
         )
         if path:
             self.var_out.set(path)
@@ -342,8 +342,8 @@ def main():
     # Если скрипт запущен с параметрами в консоли — работаем в CLI-режиме
     if len(sys.argv) > 1:
         parser = argparse.ArgumentParser(description="Упаковщик папок в формат .db / .xdb для NLC 7 (LZ4F)")
-        parser.add_argument("input_dir", help="Путь к исходной папке (например, gamedata)")
-        parser.add_argument("output_db", help="Имя выходного архива (например, gamedata.dbz)")
+        parser.add_argument("input_dir", help="Путь к исходной папке gamedata")
+        parser.add_argument("output_db", help="Имя выходного архива (например, gamedata.dbx)")
         parser.add_argument("--no-compress", action="store_true", help="Не сжимать файлы")
         parser.add_argument("--raw-table", action="store_true", help="Не сжимать таблицу файлов")
         args = parser.parse_args()
