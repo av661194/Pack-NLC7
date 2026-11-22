@@ -175,7 +175,7 @@ class PackerApp(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.title("NLC 7 LZ4 DB Packer")
+        self.title("NLC 7 DB LZ4 Packer")
         self.geometry("760x500")
         self.q = queue.Queue()
         self.stop_event = threading.Event()
@@ -184,21 +184,12 @@ class PackerApp(tk.Tk):
         self.after(100, self._poll_queue)
 
     def _build_ui(self):
-        def _on_mode_change(self):
-        """Блокирует и снимает галочку сжатия таблицы, если выбран режим 'Без сжатия'."""
-        if self.var_no_comp.get():
-            self.var_comp_table.set(False)
-            self.chk_comp_table.configure(state="disabled")
-        else:
-            self.chk_comp_table.configure(state="normal")
-            self.var_comp_table.set(True)
-            
         """Создает и размещает все виджеты (поля ввода, кнопки, чекбоксы, лог)."""
         frm = ttk.Frame(self, padding=10)
         frm.pack(fill="x")
 
         # Выбор исходной папки (gamedata)
-        ttk.Label(frm, text="Папка gamedata:").grid(row=0, column=0, sticky="w")
+        ttk.Label(frm, text="Исходная папка:").grid(row=0, column=0, sticky="w")
         self.var_src = tk.StringVar()
         ttk.Entry(frm, textvariable=self.var_src).grid(row=0, column=1, sticky="ew", padx=6)
         ttk.Button(frm, text="Обзор...", command=self._pick_src).grid(row=0, column=2)
@@ -210,7 +201,7 @@ class PackerApp(tk.Tk):
         ttk.Button(frm, text="Сохранить как...", command=self._pick_out).grid(row=1, column=2, pady=(6, 0))
         frm.columnconfigure(1, weight=1)
 
-        # Переключатели режима упаковки
+        # Чекбоксы параметров упаковки
         opts = ttk.Frame(self, padding=(10, 4))
         opts.pack(fill="x")
 
@@ -260,6 +251,15 @@ class PackerApp(tk.Tk):
         self.log = tk.Text(self, height=14, state="disabled")
         self.log.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
+    def _on_mode_change(self):
+        """Блокирует и снимает галочку сжатия таблицы, если выбран режим 'Без сжатия'."""
+        if self.var_no_comp.get():
+            self.var_comp_table.set(False)
+            self.chk_comp_table.configure(state="disabled")
+        else:
+            self.chk_comp_table.configure(state="normal")
+            self.var_comp_table.set(True)
+            
     def _log(self, text: str):
         """Добавляет строку в окно лога и прокручивает его вниз."""
         self.log.configure(state="normal")
@@ -274,14 +274,14 @@ class PackerApp(tk.Tk):
             self.var_src.set(path)
             if not self.var_out.get():
                 parent = os.path.dirname(os.path.abspath(path))
-                self.var_out.set(os.path.join(parent, "gamedata.dbx"))
+                self.var_out.set(os.path.join(parent, "gamedata.dbz"))
 
     def _pick_out(self):
         """Диалог выбора пути и имени итогового .db / .xdb архива."""
         path = filedialog.asksaveasfilename(
             title="Сохранить архив как",
-            defaultextension=".dbx",
-            filetypes=[("X-Ray archives", "*.db* *.xdb*"), ("All files", "*.*")],
+            defaultextension=".dbz",
+            filetypes=[("X-Ray DB/XDB", "*.db* *.xdb*"), ("All files", "*.*")],
         )
         if path:
             self.var_out.set(path)
