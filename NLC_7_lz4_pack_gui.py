@@ -108,7 +108,9 @@ def build_archive(
     def make_table(base_data_offset: int) -> bytes:
         tbl = bytearray()
         for d in dirs:
-            name_bytes = d.encode("cp1251")
+            # В оригинале NLC 7 пути директорий в таблице оканчиваются на обратный слеш '\'
+            dir_name = d if d.endswith("\\") else d + "\\"
+            name_bytes = dir_name.encode("cp1251")
             body_len = 22 + len(name_bytes)
             tbl.extend(struct.pack("<HH", body_len, 0x81) + (b"\x00" * 20) + name_bytes)
 
