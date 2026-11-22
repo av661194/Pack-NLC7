@@ -20,8 +20,8 @@ except ImportError:
     _lz4 = None
 
 # Форматы файлов, которые уже сжаты (их повторное сжатие не дает выигрыша)
-NO_COMPRESS_EXT = {".ogg", ".ogm", ".avi", ".mp4", ".bik", ".dds", ".thm"}
-
+#NO_COMPRESS_EXT = {".ogg", ".ogm", ".avi", ".mp4", ".bik", ".dds", ".thm"}
+NO_COMPRESS_EXT = {".ogm", ".avi", ".mp4", ".bik", ".geom", ".geomx"}
 
 # ==============================================================================
 # СЕКЦИЯ 2: ФУНКЦИЯ ОБЕРТКИ В ФОРМАТ LZ4F (NLC 7)
