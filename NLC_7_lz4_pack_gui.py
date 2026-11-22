@@ -68,7 +68,7 @@ def build_archive(
 
     # Сортировка по алфавиту (стандарт для X-Ray)
     dirs = sorted(dirs, key=lambda x: x.lower())
-    files.sort(key=lambda x: x.lower())
+    files.sort(key=lambda x: x[0].lower())
 
     total_files = len(files)
     if progress_cb:
