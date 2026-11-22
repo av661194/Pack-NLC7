@@ -472,8 +472,14 @@ def main():
         parser.add_argument("output_db", help="Имя выходного архива (например, gamedata.db0)")
         parser.add_argument("--no-compress", action="store_true", help="Не сжимать файлы")
         parser.add_argument("--raw-table", action="store_true", help="Не сжимать таблицу файлов")
-        parser.add_argument("--split", type=int, default=DEFAULT_VOL_MB, help="Макс. размер тома в МБ (32..1920, по умолчанию 640)")
+        parser.add_argument(
+            "--split",
+            type=int,
+            default=DEFAULT_VOL_MB,
+            help="Макс. размер тома в МБ (32..1920, по умолчанию 640)",
+        )
         args = parser.parse_args()
+        
         def cli_cb(kind, payload):
             if kind == "init":
                 print(f"Найдено файлов: {payload}, лимит тома: {payload} МБ")
@@ -487,9 +493,9 @@ def main():
             max_vol_mb=args.split,
             progress_cb=cli_cb,
         )
-    total_mb = sum(os.path.getsize(p) for p in created) / (1024 * 1024)
-    print(f"Готово! Создано томов: {len(created)} ({total_mb:.2f} МБ)")
-    return
+        total_mb = sum(os.path.getsize(p) for p in created) / (1024 * 1024)
+        print(f"Готово! Создано томов: {len(created)} ({total_mb:.2f} МБ)")
+        return
     # Если аргументов нет — запускаем графическое окно
     app = PackerApp()
     app.mainloop()
