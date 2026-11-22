@@ -66,7 +66,7 @@ def build_archive(
             files.append((rel_path, full_path))
 
     dirs = sorted(dirs)
-    files.sort(key=lambda x: x)
+    files.sort(key=lambda x: x[0].lower())
 
     total_files = len(files)
     if progress_cb:
@@ -87,7 +87,7 @@ def build_archive(
         real_size = len(raw)
         crc = zlib.crc32(raw) & 0xFFFFFFFF
         mtime = int(os.path.getmtime(full_path))
-        ext = os.path.splitext(rel_path).lower()
+        ext = os.path.splitext(rel_path)[1].lower()
 
         if no_compress or real_size < 64 or ext in NO_COMPRESS_EXT:
             packed = raw
