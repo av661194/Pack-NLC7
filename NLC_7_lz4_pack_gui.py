@@ -175,7 +175,7 @@ class PackerApp(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.title("X-Ray DB LZ4 Packer (NLC 7)")
+        self.title("NLC 7 LZ4 DB Packer")
         self.geometry("760x500")
         self.q = queue.Queue()
         self.stop_event = threading.Event()
@@ -184,6 +184,15 @@ class PackerApp(tk.Tk):
         self.after(100, self._poll_queue)
 
     def _build_ui(self):
+        def _on_mode_change(self):
+        """Блокирует и снимает галочку сжатия таблицы, если выбран режим 'Без сжатия'."""
+        if self.var_no_comp.get():
+            self.var_comp_table.set(False)
+            self.chk_comp_table.configure(state="disabled")
+        else:
+            self.chk_comp_table.configure(state="normal")
+            self.var_comp_table.set(True)
+            
         """Создает и размещает все виджеты (поля ввода, кнопки, чекбоксы, лог)."""
         frm = ttk.Frame(self, padding=10)
         frm.pack(fill="x")
@@ -201,13 +210,35 @@ class PackerApp(tk.Tk):
         ttk.Button(frm, text="Сохранить как...", command=self._pick_out).grid(row=1, column=2, pady=(6, 0))
         frm.columnconfigure(1, weight=1)
 
-        # Чекбоксы параметров упаковки
+        # Переключатели режима упаковки
         opts = ttk.Frame(self, padding=(10, 4))
         opts.pack(fill="x")
-        self.var_comp_table = tk.BooleanVar(value=True)
+
         self.var_no_comp = tk.BooleanVar(value=False)
-        ttk.Checkbutton(opts, text="Сжимать таблицу файлов (LZ4F)", variable=self.var_comp_table).pack(side="left")
-        ttk.Checkbutton(opts, text="Без сжатия (упаковать как есть)", variable=self.var_no_comp).pack(side="left", padx=16)
+        self.var_comp_table = tk.BooleanVar(value=True)
+
+        ttk.Radiobutton(
+            opts,
+            text="Со сжатием (LZ4F)",
+            variable=self.var_no_comp,
+            value=False,
+            command=self._on_mode_change,
+        ).pack(side="left")
+
+        ttk.Radiobutton(
+            opts,
+            text="Без сжатия (упаковать как есть)",
+            variable=self.var_no_comp,
+            value=True,
+            command=self._on_mode_change,
+        ).pack(side="left", padx=(12, 16))
+
+        self.chk_comp_table = ttk.Checkbutton(
+            opts,
+            text="Сжимать таблицу файлов",
+            variable=self.var_comp_table,
+        )
+        self.chk_comp_table.pack(side="left")
 
         # Кнопки управления процессом
         btns = ttk.Frame(self, padding=10)
