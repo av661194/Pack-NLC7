@@ -260,7 +260,7 @@ class PackerApp(tk.Tk):
         frm.pack(fill="x")
 
         # Выбор исходной папки (gamedata)
-        ttk.Label(frm, text="Исходная папка:").grid(row=0, column=0, sticky="w")
+        ttk.Label(frm, text="Папка gamedata:").grid(row=0, column=0, sticky="w")
         self.var_src = tk.StringVar()
         ttk.Entry(frm, textvariable=self.var_src).grid(row=0, column=1, sticky="ew", padx=6)
         ttk.Button(frm, text="Обзор...", command=self._pick_src).grid(row=0, column=2)
