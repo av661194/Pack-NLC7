@@ -274,13 +274,13 @@ class PackerApp(tk.Tk):
             self.var_src.set(path)
             if not self.var_out.get():
                 parent = os.path.dirname(os.path.abspath(path))
-                self.var_out.set(os.path.join(parent, "gamedata.dbz"))
+                self.var_out.set(os.path.join(parent, "gamedata.dbx"))
 
     def _pick_out(self):
         """Диалог выбора пути и имени итогового .db / .xdb архива."""
         path = filedialog.asksaveasfilename(
             title="Сохранить архив как",
-            defaultextension=".dbz",
+            defaultextension=".dbx",
             filetypes=[("X-Ray archives", "*.db* *.xdb*"), ("All files", "*.*")],
         )
         if path:
